@@ -23,11 +23,17 @@ class FaceAttendanceSystem:
         self.root.geometry(f'{window_width}x{window_height}+{center_x}+{center_y}')
         self.root.resizable(False, False)
         
+        # Add icon
+        try:
+            self.root.iconbitmap("assets/icon.ico")
+        except:
+            pass
+        
         # Configure the root window
         self.root.configure(background='#f0f0f0')
         
         # Create directories if they don't exist
-        directories = ['TrainingImages', 'TrainingImageLabels', 'AttendanceRecords']
+        directories = ['TrainingImages', 'TrainingImageLabels', 'AttendanceRecords', 'assets']
         for dir in directories:
             if not os.path.exists(dir):
                 os.makedirs(dir)
@@ -36,6 +42,8 @@ class FaceAttendanceSystem:
         self.var_student_name = tk.StringVar()
         self.var_roll_no = tk.StringVar()
         self.var_subject = tk.StringVar()
+        self.var_email = tk.StringVar()
+        self.var_email_enabled = tk.BooleanVar(value=True)
         
         # Create GUI elements
         self._create_gui()
@@ -79,36 +87,49 @@ class FaceAttendanceSystem:
         
         # Student Name
         tk.Label(left_frame, text="Student Name:", font=("Helvetica", 12), 
-                bg="#f0f0f0").grid(row=0, column=0, padx=10, pady=20, sticky=tk.W)
+                bg="#f0f0f0").grid(row=0, column=0, padx=10, pady=10, sticky=tk.W)
         
         tk.Entry(left_frame, textvariable=self.var_student_name, 
-                font=("Helvetica", 12), width=20).grid(row=0, column=1, padx=10, pady=20, sticky=tk.W)
+                font=("Helvetica", 12), width=20).grid(row=0, column=1, padx=10, pady=10, sticky=tk.W)
         
         # Roll Number
         tk.Label(left_frame, text="Roll Number:", font=("Helvetica", 12), 
-                bg="#f0f0f0").grid(row=1, column=0, padx=10, pady=20, sticky=tk.W)
+                bg="#f0f0f0").grid(row=1, column=0, padx=10, pady=10, sticky=tk.W)
         
         tk.Entry(left_frame, textvariable=self.var_roll_no, 
-                font=("Helvetica", 12), width=20).grid(row=1, column=1, padx=10, pady=20, sticky=tk.W)
+                font=("Helvetica", 12), width=20).grid(row=1, column=1, padx=10, pady=10, sticky=tk.W)
+        
+        # Email
+        tk.Label(left_frame, text="Email Address:", font=("Helvetica", 12), 
+                bg="#f0f0f0").grid(row=2, column=0, padx=10, pady=10, sticky=tk.W)
+        
+        tk.Entry(left_frame, textvariable=self.var_email, 
+                font=("Helvetica", 12), width=20).grid(row=2, column=1, padx=10, pady=10, sticky=tk.W)
         
         # Subject
         tk.Label(left_frame, text="Subject:", font=("Helvetica", 12), 
-                bg="#f0f0f0").grid(row=2, column=0, padx=10, pady=20, sticky=tk.W)
+                bg="#f0f0f0").grid(row=3, column=0, padx=10, pady=10, sticky=tk.W)
         
         subjects = ["Mathematics", "Physics", "Chemistry", "Biology", "Computer Science"]
         subject_combo = ttk.Combobox(left_frame, textvariable=self.var_subject, 
                                    font=("Helvetica", 12), width=18, state="readonly")
         subject_combo["values"] = subjects
         subject_combo.current(0)
-        subject_combo.grid(row=2, column=1, padx=10, pady=20, sticky=tk.W)
+        subject_combo.grid(row=3, column=1, padx=10, pady=10, sticky=tk.W)
+        
+        # Email notifications checkbox
+        email_check = tk.Checkbutton(left_frame, text="Send Email Notifications", 
+                                   variable=self.var_email_enabled, 
+                                   font=("Helvetica", 12), bg="#f0f0f0")
+        email_check.grid(row=4, column=0, padx=10, pady=10, columnspan=2, sticky=tk.W)
         
         # Camera Preview
         self.preview_frame = tk.LabelFrame(left_frame, text="Camera Preview", 
                                          font=("Helvetica", 10), bg="#f0f0f0", fg="#4a6ea9")
-        self.preview_frame.place(x=10, y=200, width=440, height=300)
+        self.preview_frame.place(x=10, y=220, width=440, height=220)
         
         self.preview_label = tk.Label(self.preview_frame, bg="black")
-        self.preview_label.place(x=0, y=0, width=440, height=300)
+        self.preview_label.place(x=0, y=0, width=440, height=195)
 
     def _create_right_frame(self, parent):
         """Create right frame with operation buttons"""
@@ -122,12 +143,13 @@ class FaceAttendanceSystem:
         
         instruction_text = tk.Text(right_frame, font=("Helvetica", 10), bg="#ffffff", width=52, height=10)
         instruction_text.place(x=10, y=50)
-        instruction_text.insert(tk.END, "1. Register a new student with name and roll number\n"
+        instruction_text.insert(tk.END, "1. Register a new student with name, roll number and email\n"
                                       "2. Click 'Capture Images' to take 50 sample images\n"
                                       "3. Train the model after adding multiple students\n"
                                       "4. Select a subject for attendance tracking\n"
                                       "5. Click 'Take Attendance' to begin face recognition\n"
-                                      "6. View attendance reports in Excel format\n")
+                                      "6. Attendance records will be sent via email if enabled\n"
+                                      "7. View attendance reports in Excel format\n")
         instruction_text.configure(state="disabled")
         
         # Buttons
@@ -138,15 +160,17 @@ class FaceAttendanceSystem:
             ("Capture Images", self.capture_images),
             ("Train Model", self.train_model),
             ("Take Attendance", self.take_attendance),
-            ("View Attendance", self.view_attendance)
+            ("View Attendance", self.view_attendance),
+            ("Send Reports", self.send_reports),
+            ("Exit", self.exit_program)
         ]
         
         for i, (text, command) in enumerate(buttons):
             btn = tk.Button(btn_frame, text=text, command=command,
                           font=("Helvetica", 12, "bold"), bg="#4a6ea9", fg="white",
                           activebackground="#36518a", activeforeground="white",
-                          cursor="hand2", width=20, height=2)
-            btn.grid(row=i//2, column=i%2, padx=25, pady=15)
+                          cursor="hand2", width=15, height=2)
+            btn.grid(row=i//3, column=i%3, padx=2, pady=5)
 
     def capture_images(self):
         """Capture training images for a student"""
@@ -231,6 +255,7 @@ class FaceAttendanceSystem:
                 raise Exception("Model not trained yet!")
             
             student_data = self._load_student_data()
+            student_emails = atm.get_student_emails()
             
             self.cap = cv2.VideoCapture(0)
             self.status_var.set("Status: Taking attendance...")
@@ -260,7 +285,18 @@ class FaceAttendanceSystem:
                     if confidence < 80:
                         name = student_data.get(id, "Unknown")
                         if id not in attendance_tracker:
-                            self._mark_attendance(id, name)
+                            marked = self._mark_attendance(id, name)
+                            
+                            # Send email if enabled and attendance marked
+                            if marked and self.var_email_enabled.get() and id in student_emails:
+                                current_date = datetime.now().strftime('%Y-%m-%d')
+                                atm.send_attendance_email(
+                                    student_emails[id], 
+                                    name,
+                                    self.var_subject.get(),
+                                    current_date
+                                )
+                            
                             attendance_tracker.add(id)
                     else:
                         name = "Unknown"
@@ -285,7 +321,7 @@ class FaceAttendanceSystem:
             return
             
         try:
-            file_path = f"AttendanceRecords/{self.var_subject.get()}_attendance.xlsx"
+            file_path = os.path.abspath(f"AttendanceRecords/{self.var_subject.get()}_attendance.xlsx")
             
             if not os.path.exists(file_path):
                 raise Exception(f"No attendance records for {self.var_subject.get()}")
@@ -295,12 +331,56 @@ class FaceAttendanceSystem:
             
         except Exception as e:
             self._handle_error("View Attendance", str(e))
+    
+    def send_reports(self):
+        """Send attendance reports to all students"""
+        if not self._validate_subject():
+            return
+        
+        try:
+            file_path = f"AttendanceRecords/{self.var_subject.get()}_attendance.xlsx"
+            
+            if not os.path.exists(file_path):
+                raise Exception(f"No attendance records for {self.var_subject.get()}")
+            
+            # Load student emails
+            student_emails = atm.get_student_emails()
+            if not student_emails:
+                raise Exception("No student email records found")
+            
+            # Send emails to all students
+            current_date = datetime.now().strftime('%Y-%m-%d')
+            email_sent_count = 0
+            
+            for student_id, email in student_emails.items():
+                student_data = self._load_student_data()
+                name = student_data.get(student_id, f"Student {student_id}")
+                
+                if atm.send_attendance_email(email, name, self.var_subject.get(), current_date):
+                    email_sent_count += 1
+            
+            self.status_var.set(f"Status: Reports sent to {email_sent_count} students")
+            messagebox.showinfo("Email Sent", f"Attendance reports sent to {email_sent_count} students")
+            
+        except Exception as e:
+            self._handle_error("Send Reports", str(e))
+    
+    def exit_program(self):
+        """Exit the program"""
+        self._cleanup_camera()
+        if messagebox.askyesno("Exit", "Are you sure you want to exit?"):
+            self.root.destroy()
 
     def _validate_inputs(self):
         """Validate student inputs"""
         if not self.var_student_name.get() or not self.var_roll_no.get():
             messagebox.showerror("Error", "Please enter name and roll number")
             return False
+        
+        if self.var_email_enabled.get() and not self.var_email.get():
+            messagebox.showerror("Error", "Please enter email address or disable email notifications")
+            return False
+        
         return True
 
     def _validate_subject(self):
@@ -312,22 +392,42 @@ class FaceAttendanceSystem:
 
     def _save_student_info(self):
         """Save student information to CSV"""
+        # Save to StudentDetails.csv
         with open("TrainingImageLabels/StudentDetails.csv", 'a+') as f:
             f.seek(0)
-            existing_rolls = [line.split(',')[0] for line in f.readlines()]
+            existing_rolls = [line.split(',')[0] for line in f.readlines() if line.strip()]
             
             if self.var_roll_no.get() in existing_rolls:
                 raise Exception("Roll number already exists!")
             
             f.write(f"{self.var_roll_no.get()},{self.var_student_name.get()}\n")
+        
+        # Save email if provided
+        if self.var_email.get():
+            email_file = "TrainingImageLabels/StudentEmails.csv"
+            
+            # Create or append to email file
+            if not os.path.exists(email_file):
+                with open(email_file, 'w') as f:
+                    f.write("ID,Email\n")
+            
+            with open(email_file, 'a') as f:
+                f.write(f"{self.var_roll_no.get()},{self.var_email.get()}\n")
 
     def _load_student_data(self):
         """Load student data from CSV"""
         student_data = {}
-        with open("TrainingImageLabels/StudentDetails.csv", 'r') as f:
-            for line in f:
-                roll, name = line.strip().split(',')
-                student_data[int(roll)] = name
+        try:
+            with open("TrainingImageLabels/StudentDetails.csv", 'r') as f:
+                for line in f:
+                    if line.strip():
+                        parts = line.strip().split(',')
+                        if len(parts) >= 2:
+                            roll, name = parts[0], parts[1]
+                            student_data[int(roll)] = name
+        except Exception as e:
+            print(f"Error loading student data: {str(e)}")
+        
         return student_data
 
     def _mark_attendance(self, student_id, name):
@@ -335,14 +435,17 @@ class FaceAttendanceSystem:
         date = datetime.now().strftime('%Y-%m-%d')
         time = datetime.now().strftime('%H:%M:%S')
         
-        if atm.mark_attendance(student_id, name, self.var_subject.get(), date, time):
+        marked = atm.mark_attendance(student_id, name, self.var_subject.get(), date, time)
+        if marked:
             self.status_var.set(f"Status: Attendance marked for {name}")
+        
+        return marked
 
     def _update_preview(self, frame):
         """Update the preview label with the current frame"""
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         img = Image.fromarray(frame)
-        img = ImageTk.PhotoImage(img)
+        img = ImageTk.PhotoImage(image=img)
         self.preview_label.configure(image=img)
         self.preview_label.image = img
         self.root.update()
